@@ -31,19 +31,33 @@ else
   puts "Trying to detect MySQL configuration with mysql_config command..."
   begin
     cflags = libs = nil
-    for prefix in ["", "/usr/local/mysql/bin/", "/opt/local/mysql/bin/"]
-      begin
-        cflags = exec_command("#{prefix}mysql_config --cflags", true)
-        libs   = exec_command("#{prefix}mysql_config --libs", true)
-        break
-      rescue RuntimeError, Errno::ENOENT => ex
-        cflags = libs = nil
-      end
-    end
-    if cflags && libs
-      puts "Succeeded to detect MySQL configuration with #{prefix}mysql_config command."
-      $CPPFLAGS << " #{cflags.strip}"
-      $libs = "#{libs.strip} #{$libs}"
+    
+    dirs = ENV['PATH'].split(':') + %w[
+      /opt
+      /opt/local
+      /opt/local/mysql
+      /opt/local/lib/mysql5
+      /usr
+      /usr/local
+      /usr/local/mysql
+      /usr/local/mysql-*
+      /usr/local/lib/mysql5
+    ].map{|dir| "#{dir}/bin" }
+
+    GLOB = "{#{dirs.join(',')}}/{mysql_config,mysql_config5}"
+
+    if /mswin32/ =~ RUBY_PLATFORM
+      inc, lib = dir_config('mysql')
+      exit 1 unless have_library("libmysql")
+    elsif mc = (with_config('mysql-config') || Dir[GLOB].first) then
+      mc = Dir[GLOB].first if mc == true      
+      puts "Succeeded to detect MySQL configuration: #{mc}"
+      cflags = `#{mc} --cflags`.chomp
+      exit 1 if $? != 0
+      libs = `#{mc} --libs`.chomp
+      exit 1 if $? != 0
+      $CPPFLAGS += ' ' + cflags
+      $libs = libs + " " + $libs
     else
       puts "Failed to detect MySQL configuration with mysql_config command."
       puts "Trying to detect MySQL client library..."
@@ -55,6 +69,7 @@ else
         have_library(libs.shift)
       end
     end
+
   end
 end
 
