@@ -2,6 +2,8 @@
 
 An enhanced MySQL database driver. With support for async operations and threaded database access.
 
+Added Encoding awareness for Ruby 1.9.  Convert all data to default external encoding
+
 == Building
 
   gem build mysqlplus.gemspec

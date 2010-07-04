@@ -1,36 +1,60 @@
 require 'mkmf'
 
-dirs = ENV['PATH'].split(':') + %w[
-  /opt
-  /opt/local
-  /opt/local/mysql
-  /opt/local/lib/mysql5
-  /usr
-  /usr/local
-  /usr/local/mysql
-  /usr/local/mysql-*
-  /usr/local/lib/mysql5
-].map{|dir| "#{dir}/bin" }
+def exec_command(command, flag_raise=false)
+  output = `#{command}`
+  return output.chomp if $? == 0
+  msg = "failed: #{command}"
+  raise msg if flag_raise
+  die msg
+end
 
-GLOB = "{#{dirs.join(',')}}/{mysql_config,mysql_config5}"
+def die(message)
+  $stderr.puts "*** ERROR: #{message}"
+  exit 1
+end
 
 if /mswin32/ =~ RUBY_PLATFORM
   inc, lib = dir_config('mysql')
-  exit 1 unless have_library("libmysql")
-elsif mc = (with_config('mysql-config') || Dir[GLOB].first) then
-  mc = Dir[GLOB].first if mc == true
-  cflags = `#{mc} --cflags`.chomp
-  exit 1 if $? != 0
-  libs = `#{mc} --libs`.chomp
-  exit 1 if $? != 0
+  #exit 1 unless have_library("libmysql")
+  have_library("libmysql")  or die "can't find libmysql."
+elsif mc = with_config('mysql-config') then
+  mc = 'mysql_config' if mc == true
+  #cflags = `#{mc} --cflags`.chomp
+  #exit 1 if $? != 0
+  cflags = exec_command("#{mc} --cflags")
+  #libs = `#{mc} --libs`.chomp
+  #exit 1 if $? != 0
+  libs = exec_command("#{mc} --libs")
   $CPPFLAGS += ' ' + cflags
   $libs = libs + " " + $libs
 else
-  inc, lib = dir_config('mysql', '/usr/local')
-  libs = ['m', 'z', 'socket', 'nsl', 'mygcc']
-  while not find_library('mysqlclient', 'mysql_query', lib, "#{lib}/mysql") do
-    exit 1 if libs.empty?
-    have_library(libs.shift)
+  puts "Trying to detect MySQL configuration with mysql_config command..."
+  begin
+    cflags = libs = nil
+    for prefix in ["", "/usr/local/mysql/bin/", "/opt/local/mysql/bin/"]
+      begin
+        cflags = exec_command("#{prefix}mysql_config --cflags", true)
+        libs   = exec_command("#{prefix}mysql_config --libs", true)
+        break
+      rescue RuntimeError, Errno::ENOENT => ex
+        cflags = libs = nil
+      end
+    end
+    if cflags && libs
+      puts "Succeeded to detect MySQL configuration with #{prefix}mysql_config command."
+      $CPPFLAGS << " #{cflags.strip}"
+      $libs = "#{libs.strip} #{$libs}"
+    else
+      puts "Failed to detect MySQL configuration with mysql_config command."
+      puts "Trying to detect MySQL client library..."
+      inc, lib = dir_config('mysql', '/usr/local')
+      libs = ['m', 'z', 'socket', 'nsl', 'mygcc']
+      while not find_library('mysqlclient', 'mysql_query', lib, "#{lib}/mysql") do
+        #exit 1 if libs.empty?
+        !libs.empty?  or die "can't find mysql client library."
+        have_library(libs.shift)
+      end
+    end
   end
 end
 
@@ -42,7 +66,8 @@ if have_header('mysql.h') then
 elsif have_header('mysql/mysql.h') then
   src = "#include <mysql/errmsg.h>\n#include <mysql/mysqld_error.h>\n"
 else
-  exit 1
+  #exit 1
+  die "can't find 'mysql.h'."
 end
 
 # check for 1.9
@@ -63,9 +88,10 @@ end
 if /mswin32/ =~ RUBY_PLATFORM && !/-E/.match(cpp)
   cpp << " -E"
 end
-unless system "#{cpp} > confout" then
-  exit 1
-end
+#unless system "#{cpp} > confout" then
+#  exit 1
+#end
+exec_command("#{cpp} > confout")
 File.unlink "conftest.c"
 
 error_syms = []
@@ -86,5 +112,7 @@ File.open('error_const.h', 'w') do |f|
     f.puts "    rb_define_mysql_const(#{s});"
   end
 end
+
+$CPPFLAGS += " -DRUBY19" if RUBY_VERSION =~ /1.9/
 
 create_makefile("mysql")
