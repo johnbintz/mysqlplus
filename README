@@ -2,7 +2,7 @@
 
 An enhanced MySQL database driver. With support for async operations and threaded database access.
 
-Added Encoding awareness for Ruby 1.9.  Convert all data to default external encoding
+Added Encoding awareness for Ruby 1.9.  Convert all data to default external encoding ( merged from http://github.com/lsegal/mysql-ruby )
 
 == Building
 
