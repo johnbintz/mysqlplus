@@ -1,5 +1,5 @@
 Gem::Specification.new do |s|
-  s.name     = "jrmey-mysqlplus"
+  s.name     = "mysqlplus"
   s.version  = "0.1.4"
   s.date     = "2010-07-04"
   s.summary  = "Enhanced Ruby MySQL driver with Ruby 1.9 encoding awareness"
@@ -7,7 +7,7 @@ Gem::Specification.new do |s|
   s.homepage = "http://github.com/jrmey/mysqlplus"
   s.description = "Enhanced Ruby MySQL driver"
   s.has_rdoc = true
-  s.authors  = ["Muhammad A. Ali", "Jeremy Suriel"]
+  s.authors  = ["Muhammad A. Ali", "Jeremy Suriel", "John Bintz"]
   s.platform = Gem::Platform::RUBY
   s.files    = %w[
     README
