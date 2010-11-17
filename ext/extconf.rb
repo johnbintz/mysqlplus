@@ -130,4 +130,8 @@ end
 
 $CPPFLAGS += " -DRUBY19" if RUBY_VERSION =~ /1.9/
 
+if hard_mysql_path = $libs[%r{-L(/[^ ]+)}, 1]
+	$LDFLAGS << " -Wl,-rpath,#{hard_mysql_path}"
+end
+
 create_makefile("mysql")
